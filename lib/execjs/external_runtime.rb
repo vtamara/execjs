@@ -208,10 +208,17 @@ module ExecJS
           end
         end
       else
+        require 'shellwords'
+
         def exec_runtime(filename)
-          io = IO.popen(binary.split(' ') << filename, **(@popen_options.merge({err: [:child, :out]})))
-          output = io.read
-          io.close
+          path = Dir::Tmpname.create(['execjs', 'json']) {}
+          begin
+            command = "#{Shellwords.join(binary.split(' ') << filename)} 2>&1"
+            `#{command} > #{path}`
+            output = File.open(path, 'rb', **@popen_options) { |f| f.read }
+          ensure
+            File.unlink(path) if path
+          end
 
           if $?.success?
             output
